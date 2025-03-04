@@ -4,7 +4,6 @@
         context/system         {:local/root "./libs/system"}
         hiccup/hiccup          {:mvn/version "2.0.0-RC4"}
         context/http           {:local/root "./libs/http"}
-        markdown-clj/markdown-clj {:mvn/version "1.12.3"}
         selmer/selmer {:mvn/version "1.12.62"}
         }
  :aliases

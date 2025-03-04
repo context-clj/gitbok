@@ -13,7 +13,8 @@
     (let [href (nth match 2)]
       [:a {:class "px-4 text-gray-500 block hover:bg-gray-50 py-1.5"
            :href (if (str/starts-with? href "http") href (str "/" href))
-           :hx-target "#content"}
+           :hx-target "#content"
+           :hx-swap "outerHTML"}
        (uui/raw (nth match 1))])
     text))
 
