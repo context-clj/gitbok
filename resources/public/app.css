@@ -74,6 +74,9 @@
         &[style="warning"] {
             @apply bg-yellow-50 border-yellow-200;
         }
+        &[style="danger"] {
+            @apply bg-red-50 border-red-200;
+        }
     }
 
     div[role="content-ref"] {

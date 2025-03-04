@@ -63,6 +63,13 @@
    (str "<div role=\"hint\" " (str/join " " args) " >" (:content (:hint content))  "</div>"))
  :else :endhint)
 
+;; {% embed url="https://youtu.be/N_ZkebvqM24" %}
+
+(selmer.parser/add-tag!
+ :embed
+ (fn [args context-map]
+   (str "<pre> Embed:" (pr-str args) "</pre>")))
+
 (selmer.parser/add-tag!
  :tabs
  (fn [args context-map content]
