@@ -15,6 +15,7 @@
   [(-> txt
        (str/replace #"\*\*([^\*]+)\*\*"  (fn [[_ txt & _r]] (str "<strong>" txt "</strong>")))
        (str/replace #"`([^`]+)`"  (fn [[_ txt & _r]] (str "<code class='inline-code'>" txt "</code>")))
+       (str/replace #"\s_([^_]+)_"  (fn [[_ txt & _r]] (str " <i>" txt "</i>")))
        (str/replace #"\!\[([^\]]*)\]\(([^\)]+)\)"  (fn [[_ title src & _]] (str "<img src=\"" src "\" alt=\"" title "\"/>")))
        (str/replace #"\[([^\]]*)\]\(([^\)]+)\)"   (fn [[_ title href & _]] (str "<a href=\"" href "\" >" title "</a>")))
        (h/raw))])
@@ -24,8 +25,12 @@
     (into [(keyword (str "h" lvl))] (parse-inline ctx (str/replace l #"\s*#+\s*" "")))))
 
 (defn code-parser [ctx block]
-  (let [ls (:lines block)]
-    [:pre [:code (str/join "\n" (butlast (rest ls)))]]))
+  (let [ls (:lines block)
+        lang (str/trim (str/replace (first ls) #"^```" ""))]
+    [:div {:class "mt-4"}
+     [:b {:class "text-xs text-gray-400"} lang]
+     [:pre
+      [:code (str/join "\n" (butlast (rest ls)))]]]))
 
 (defn ul-parser [ctx block]
   (into [:ul]
@@ -94,7 +99,6 @@
           (parse-lines ctx (butlast (rest ls))))))
 
 
-
 (defmethod parse-tag
   "code"
   [ctx block]
@@ -116,9 +120,21 @@
     (into [:quote] (parse-lines ctx ls))))
 
 (defn table-parser [ctx block]
-  [:pre
-   (str/join "\n" (:lines block))]
-  )
+  (let [ls (:lines block)
+        headers (str/split (str/replace (first ls) #"(^\||\|$)" "") #"\|")
+        rows (->> (drop 2 ls)
+                  (remove str/blank?)
+                  (mapv (fn [l]
+                          (str/split (str/replace l #"(^\||\|$)" "") #"\|"))))]
+    [:table
+     [:thead
+      (for [h headers]
+        (into [:th] (parse-inline ctx h)))]
+     [:tbody
+      (for [r rows]
+        [:tr
+         (for [x r]
+           (into [:td]  (parse-inline ctx x)))])]]))
 
 (def block-defs
   {:header {:match #(re-find #"^\s*#" %)                                                 :parser header-parser}
