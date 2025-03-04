@@ -1,17 +1,10 @@
 (ns markdown.links
   (:require [clojure.string :as string]
-            [markdown.common
-             :refer
-             [freeze-string
-              gen-token
-              strong
-              bold
-              em
-              italics
-              strikethrough]]))
+            [markdown.common :refer [freeze-string gen-token strong bold em italics strikethrough]]))
 
 (defn href [text link state]
-  ;; (println :href (pr-str (string/join text)) (pr-str (string/join link)) (pr-str state))
+  (when-let [rl (:resolve-link state)]
+    (rl (string/join link)))
   (let [[link title] (split-with (partial not= \space) link)]
     (freeze-string
      (seq "<a href='") link (seq "'")

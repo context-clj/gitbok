@@ -104,7 +104,8 @@
   (md-to-html-string* text (into [:parse-meta? true] params)))
 
 (comment
-  (md-to-html-string "[link](ref)")
+  (md-to-html-string "[link](ref)" :param 1)
+
   (md-to-html-string "![link](ref)")
 
   )

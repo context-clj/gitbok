@@ -18,47 +18,45 @@
 
 
 (selmer.parser/add-tag!
- :content-ref
- (fn [args context-map content]
-   (str "<div role=\"content-ref\" " (str/join " " args) " >" (:content (:content-ref content))  "</div>"))
+ :content-ref (fn [args context-map content]
+                (str "<div role=\"content-ref\" " (str/join " " args) " >" (:content (:content-ref content))  "</div>"))
  :else :endcontent-ref)
 
 (selmer.parser/add-tag!
- :hint
- (fn [args context-map content]
-   (str "<div role=\"hint\" " (str/join " " args) " >" (:content (:hint content))  "</div>"))
+ :hint (fn [args context-map content]
+         (str "<div role=\"hint\" " (str/join " " args) " >" (:content (:hint content))  "</div>"))
  :else :endhint)
 
 ;; {% embed url="https://youtu.be/N_ZkebvqM24" %}
 
 (selmer.parser/add-tag!
- :embed
- (fn [args context-map]
-   (str "<pre> Embed:" (pr-str args) "</pre>")))
+ :embed (fn [args context-map]
+          (str "<pre> Embed:" (pr-str args) "</pre>")))
 
 (selmer.parser/add-tag!
- :tabs
- (fn [args context-map content]
-   (str "<div class=\"bg-red-100\" role=\"hint\" " (str/join " " args) " >" (:content (:tabs content))  "</div>"))
+ :tabs (fn [args context-map content]
+         (str "<div class=\"bg-red-100\" role=\"hint\" " (str/join " " args) " >" (:content (:tabs content))  "</div>"))
  :else :endtabs)
 
 (selmer.parser/add-tag!
- :tab
- (fn [args context-map content]
-   (str "<div  class=\"bg-blue-100\" role=\"tab\" " (str/join " " args) " >" (:content (:tab content))  "</div>"))
+ :tab (fn [args context-map content]
+        (str "<div  class=\"bg-blue-100\" role=\"tab\" " (str/join " " args) " >" (:content (:tab content))  "</div>"))
  :else :endtab)
 
 
+(defn resolve-link [context uri href]
+  (println :resolve uri href))
 
-(defn read-file [uri]
+(defn read-file [context uri]
   (let [uri (str/replace uri #".md$" "")
         uri (if (= "/" uri) "/README" uri)
         file-name (str "docs" uri ".md")
         content (slurp file-name)
-        content* (last (str/split content #"---\n" 4))]
+        content* (last (str/split content #"---\n" 4))
+        resolve-link (fn [x] (resolve-link context uri x))]
     (try
       (->
-       (markdown.core/md-to-html-string content*)
+       (markdown.core/md-to-html-string content* :resolve-link resolve-link)
        (str)
        (selmer.parser/render {})
        (uui/raw ))
@@ -90,7 +88,7 @@
     (let [path (http/url-decode (second (str/split (:uri request) #"\.gitbook")))]
       (resp/file-response (str "./docs/.gitbook" path)))
     (let [content  [:div#content.uui- {:class "m-x-auto flex-1 py-6 px-8  h-screen overflow-auto"}
-                    [:div.gitbook (read-file (:uri request))]]]
+                    [:div.gitbook (read-file context (:uri request))]]]
       (if (uui/hx-target request)
         (uui/response content)
         (uui/boost-response
