@@ -20,7 +20,7 @@
     }
 
     p {
-        @apply mt-4 text-gray-600;
+        @apply my-4 text-gray-600;
     }
 
     ul {
@@ -32,7 +32,7 @@
     }
 
     pre {
-        @apply mt-4 p-4 text-xs bg-gray-100  text-black rounded-md overflow-x-auto;
+        @apply mt-4 p-4 text-xs bg-gray-100  text-black rounded-md overflow-x-auto shadow-md;
         code {
             @apply font-mono;
         }
@@ -61,12 +61,12 @@
 
     p {
         code {
-            @apply bg-gray-100 text-sm px-2 py-1 rounded text-black font-mono;
+            @apply bg-gray-100 text-xs px-2 py-1 rounded text-black font-mono;
         }
     }
 
     div[role="hint"] {
-        @apply my-4 p-8 border rounded-md shadow;
+        @apply my-4 p-6 border rounded-md shadow;
 
         &[style="info"] {
             @apply bg-gray-50 border-gray-200;
@@ -79,8 +79,8 @@
         }
     }
 
-    div[role="content-ref"] {
-        @apply my-4 p-4 border border-blue-100 rounded-md hover:bg-blue-50;
+    a[role="content-ref"] {
+        @apply block my-4 p-4 border border-blue-100 rounded-md hover:bg-blue-50;
     }
 }
 

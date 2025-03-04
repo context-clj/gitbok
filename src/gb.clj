@@ -6,6 +6,7 @@
    [cheshire.core]
    [uui]
    [markdown.core]
+   [markdown]
    [clojure.string :as str]
    [uui.heroicons :as ico]
    [selmer.parser]
@@ -35,34 +36,66 @@
 
 (selmer.parser/add-tag!
  :tabs (fn [args context-map content]
-         (str "<div class=\"bg-red-100\" role=\"hint\" " (str/join " " args) " >" (:content (:tabs content))  "</div>"))
+         (str "<div role='tabs'>" (:content (:tabs content))  "</div>"))
  :else :endtabs)
 
 (selmer.parser/add-tag!
  :tab (fn [args context-map content]
-        (str "<div  class=\"bg-blue-100\" role=\"tab\" " (str/join " " args) " >" (:content (:tab content))  "</div>"))
+        (str "<div role='tab'" (str/join " " args) ">"  (:content (:tab content)) "</div>"))
  :else :endtab)
+
+(comment
+  selmer.tags/expr-tags
+  )
+
+(selmer.parser/add-tag!
+ :code (fn [args context-map content]
+        (str "<div  role=\"code\" " (str/join " " args) " >" (:content (:code content))  "</div>"))
+ :else :endcode)
 
 
 (defn resolve-link [context uri href]
   (println :resolve uri href))
+
+(defmulti format-lang (fn [lang code] (keyword lang)))
+
+(defmethod format-lang :yaml [_ code]
+  (-> code
+      (str/replace #"(?m)^(\s*)([-_0-9a-zA-Z]+)\s*:" "$1<b class='font-semibold text-gray-500'>$2</b>:")
+      (str/replace #"(?m)^(#.*)$" "<span class='text-gray-500'>$1</span>")))
+
+(defmethod format-lang :default [_ code] code)
+
+(defn format-codeblock [code language]
+  (format-lang language code))
+
+(defn to-md [context uri content]
+  (str
+   (-> 
+    (markdown.core/md-to-html-string
+     content
+     :resolve-link (fn [x] (resolve-link context uri x))
+     :codeblock-no-escape? true
+     :codeblock-callback format-codeblock)
+    (selmer.parser/render  {}))))
 
 (defn read-file [context uri]
   (let [uri (str/replace uri #".md$" "")
         uri (if (= "/" uri) "/README" uri)
         file-name (str "docs" uri ".md")
         content (slurp file-name)
-        content* (last (str/split content #"---\n" 4))
-        resolve-link (fn [x] (resolve-link context uri x))]
+        content* (if (str/starts-with? content "---")
+                   (last (str/split content #"---\n" 4))
+                   content)]
     (try
-      (->
-       (markdown.core/md-to-html-string content* :resolve-link resolve-link)
-       (str)
-       (selmer.parser/render {})
-       (uui/raw ))
+      (markdown/parse-md context content*)
+      #_[:pre
+       (with-out-str (clojure.pprint/pprint (markdown/parse-md context content*)))]
+      #_(uui/raw (to-md context uri content*))
       (catch Exception e
         [:div {:role "alert"}
          (.getMessage e)
+         [:pre (pr-str e)]
          [:pre content*]]))))
 
 (defn render-menu [items & [open]]
@@ -87,14 +120,15 @@
   (if (str/includes? (:uri request) ".gitbook")
     (let [path (http/url-decode (second (str/split (:uri request) #"\.gitbook")))]
       (resp/file-response (str "./docs/.gitbook" path)))
-    (let [content  [:div#content.uui- {:class "m-x-auto flex-1 py-6 px-8  h-screen overflow-auto"}
+    (let [content  [:div#content.uui- {:class "m-x-auto flex-1 py-6 px-12  h-screen overflow-auto"}
                     [:div.gitbook (read-file context (:uri request))]]]
       (if (uui/hx-target request)
         (uui/response content)
         (uui/boost-response
          context request
          [:div {:class "flex items-top"}
-          [:div.nav {:class "px-6 py-6 w-100 text-sm h-screen overflow-auto bg-gray-50 shadow-md"}
+          [:script {:src "/static/tabs.js"}]
+          [:div.nav {:class "px-6 py-6 w-80 text-sm h-screen overflow-auto bg-gray-50 shadow-md"}
            (menu)]
           content])))))
 
@@ -117,22 +151,6 @@
   (def context (system/start-system default-config))
 
   (system/stop-system context)
-
-  (def tpl
-    "
-{% content-ref url=\"../deployment-and-maintenance/deploy-aidbox/run-aidbox-on-managed-postgresql.md\" %}
-[run-aidbox-on-managed-postgresql.md](../deployment-and-maintenance/deploy-aidbox/run-aidbox-on-managed-postgresql.md)
-{% endcontent-ref %}
-")
-
-  (require '[selmer.parser])
-
-  (md "![a](b)")
-  (md "[a](b)")
-
-  (str (md tpl))
-
-  (selmer.parser/render (str (md tpl)) {})
 
 
   )
