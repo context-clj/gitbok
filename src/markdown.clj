@@ -1,14 +1,20 @@
 (ns markdown
   (:require [clojure.string :as str]
-            [hiccup2.core :as h]))
-
-
-(re-find #"^#" "Text")
-
-
-
+            [hiccup2.core :as h]
+            [gb.docs]
+            [uui.heroicons :as ico]))
 
 (declare parse-lines)
+
+(defn parse-link [ctx href title]
+  (if (or (str/starts-with?  href "http://")
+          (str/starts-with?  href "https://"))
+    (str (h/html [:a {:href href} (h/raw title)]))
+    (if-let [file (gb.docs/resolve-href ctx (:uri ctx) (first (str/split href #"#")))]
+      (str (h/html [:a {:href href} (or (:title file) (h/raw title))]))
+      (do
+        (when-let [bl (:broken-links ctx)] (swap! bl conj [href title]))
+        (str (h/html [:a {:href href} [:span {:class "text-red-500"} (h/raw title)]]))))))
 
 (defn parse-inline [ctx txt]
   [txt]
@@ -17,7 +23,7 @@
        (str/replace #"`([^`]+)`"  (fn [[_ txt & _r]] (str "<code class='inline-code'>" txt "</code>")))
        (str/replace #"\s_([^_]+)_"  (fn [[_ txt & _r]] (str " <i>" txt "</i>")))
        (str/replace #"\!\[([^\]]*)\]\(([^\)]+)\)"  (fn [[_ title src & _]] (str "<img src=\"" src "\" alt=\"" title "\"/>")))
-       (str/replace #"\[([^\]]*)\]\(([^\)]+)\)"   (fn [[_ title href & _]] (str "<a href=\"" href "\" >" title "</a>")))
+       (str/replace #"\[([^\]]*)\]\(([^\)]+)\)"   (fn [[_ title href & _]] (parse-link ctx href title)))
        (h/raw))])
 
 (defn header-parser [ctx {[l] :lines}]
@@ -27,7 +33,7 @@
 (defn code-parser [ctx block]
   (let [ls (:lines block)
         lang (str/trim (str/replace (first ls) #"^```" ""))]
-    [:div {:class "mt-4"}
+    [:div {:class "my-4"}
      [:b {:class "text-xs text-gray-400"} lang]
      [:pre
       [:code (str/join "\n" (butlast (rest ls)))]]]))
@@ -41,7 +47,7 @@
 
 (defn ol-parser [ctx block]
   (into [:ol]
-        (->> 
+        (->>
          (for [l (:lines block)]
            (when-not (str/blank? l)
              (into [:li] (parse-inline ctx (str/replace l #"\s*1\.\s*" "")))))
@@ -79,8 +85,16 @@
   "content-ref"
   [ctx block]
   (let [ls (:lines block)
-        url (second (re-find  #"\surl\s*=\s*\"(.*)\"" (first ls)))]
-    [:a {:href url :role "content-ref"} url "  (TODO: get title)"]))
+        href (second (re-find  #"\surl\s*=\s*\"(.*)\"" (first ls)))]
+    (if-let [file (gb.docs/resolve-href ctx (:uri ctx) href)]
+      [:a {:role "content-ref" :href href}
+       [:div {:class "flex items-center space-x-2"}
+        [:span {:class "flex-1"} (or (:title file) href)]
+        (ico/chevron-right "size-4")]]
+      [:div {:role "content-ref" :href href}
+       [:div {:class "flex items-center text-red-500"}
+        (ico/exclamation-triangle "size-4")
+        [:span (pr-str href)]]])))
 
 (defmethod parse-tag
   "tabs"
@@ -176,12 +190,17 @@
           (recur ls (conj result bl))
           (recur ls result))))))
 
+(defn broken-links [ctx str]
+  (let [broken-links (atom [])]
+    (mapv identity (parse-lines (assoc ctx :broken-links broken-links) (str/split str #"\n")))
+    @broken-links))
+
 (defn parse-md [ctx str]
   (map identity (parse-lines ctx (str/split str #"\n"))))
 
 
 (spit "/tmp/res.yaml"
- (clj-yaml.core/generate-string (parse-md {} "
+      (with-out-str (clojure.pprint/pprint (parse-md {:system (atom {})} "
 # title
 
 just a text
@@ -243,7 +262,7 @@ Aidbox provides two REST APIs - FHIR and Aidbox. The main difference is [a forma
 | search                                                 | Not supported for performance reason                                |        |
 
 
-")))
+"))))
 
 ;; 
 
