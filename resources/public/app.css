@@ -25,10 +25,24 @@
 
     ul {
         @apply mt-4 ml-8 list-disc;
+        ul {
+            @apply list-[circle];
+            margin-top: 0 !important;
+        }
+        ol {
+            margin-top: 0 !important;
+        }
     }
 
     ol {
-        @apply mt-4 ml-8 list-disc;
+        @apply mt-4 ml-8 list-decimal;
+        ul {
+            @apply list-[circle];
+            margin-top: 0 !important;
+        }
+        ol {
+            margin-top: 0 !important;
+        }
     }
 
     pre {

@@ -21,10 +21,19 @@
   [(-> txt
        (str/replace #"\*\*([^\*]+)\*\*"  (fn [[_ txt & _r]] (str "<strong>" txt "</strong>")))
        (str/replace #"`([^`]+)`"  (fn [[_ txt & _r]] (str "<code class='inline-code'>" txt "</code>")))
-       (str/replace #"\s_([^_]+)_"  (fn [[_ txt & _r]] (str " <i>" txt "</i>")))
+       (str/replace #"\s(?<!\\)_([^_]+)_"  (fn [[_ txt & _r]] (str " <i>" txt "</i>")))
+       (str/replace #"\\_" "_")
        (str/replace #"\!\[([^\]]*)\]\(([^\)]+)\)"  (fn [[_ title src & _]] (str "<img src=\"" src "\" alt=\"" title "\"/>")))
        (str/replace #"\[([^\]]*)\]\(([^\)]+)\)"   (fn [[_ title href & _]] (parse-link ctx href title)))
+       (str/replace #"(?m)\\$" "<br/>")
        (h/raw))])
+
+(comment
+
+  (parse-inline {:system (atom {})} "tedt [link-name](link.html)")
+
+
+  )
 
 (defn header-parser [ctx {[l] :lines}]
   (let [lvl (count (re-find #"#+" (str/trim l)))]
@@ -38,12 +47,33 @@
      [:pre
       [:code (str/join "\n" (butlast (rest ls)))]]]))
 
+;; TODO nested lists
 (defn ul-parser [ctx block]
-  (into [:ul]
-        (->> (for [l (:lines block)]
-               (when-not (str/blank? l)
-                 (into [:li] (parse-inline ctx (str/replace l #"\s*(\*|-)\s*" "")))))
-             (filter identity))))
+  (loop [[l & ls] (:lines block)
+         current-item nil
+         list-items []]
+    (if (nil? l)
+      (->> (conj list-items current-item)
+           (mapv (fn [lines]
+                   (let [res (parse-lines ctx lines)]
+                     (println :parse (pr-str lines))
+                     (into [:li] (if (= :p (ffirst res))
+                                   (into [(rest (first res))] (rest res))
+                                   res)))))
+           (into [:ul]))
+      (cond
+        (str/starts-with? l "* ")
+        (recur ls [(str/replace l #"\* " "")] (if current-item (conj list-items current-item) list-items))
+        (str/starts-with? l "  ")
+        (recur ls (conj current-item (str/replace l #"  " "")) list-items)
+        :else
+        (recur ls (conj current-item l) list-items)))))
+
+(comment
+  (parse-lines {} ["* a" "b" "c" "* c" "* d" "  * d1" "  * d2"])
+  (parse-lines {} ["d" "* d1" "* d2"])
+
+  )
 
 (defn ol-parser [ctx block]
   (into [:ol]
@@ -159,25 +189,30 @@
    :quote  {:match #(re-find #"^\s*\>\s" %)        :until #(not (re-find #"^\s*\>\s" %)) :parser quote-parser}
    :table  {:match #(re-find #"^\|\s" %)           :until str/blank?                     :parser table-parser}})
 
-(defn consume-until [block-def until ls]
-  (loop [[l & ls] ls res []]
+(defn consume-until [block-def until ls & [not-include?]]
+  (loop [[l & ls :as lls] ls res []]
     (if (nil? l)
       [res nil]
       (if (until l)
-        [(conj res l) ls]
+        (if not-include?
+          [res lls]
+          [(conj res l) ls])
         (recur ls (conj res l))))))
 
+(defn block-start [l]
+  (->> block-defs
+       (some (fn [[nm {m :match :as block-def}]]
+               (assert m (pr-str block-def))
+               (when (m l) (assoc block-def :name nm))))))
+
 (defn find-block [ctx l ls]
-  (if-let [block-def (->> block-defs
-                      (some (fn [[nm {m :match :as block-def}]]
-                              (assert m (pr-str block-def))
-                              (when (m l) (assoc block-def :name nm)))))]
+  (if-let [block-def (block-start l)]
     (let [block-def (if-let [init (:init block-def)] (init ctx block-def l) block-def)]
       (if-let [until (:until block-def)]
         (let [[consumed-ls ls] (consume-until block-def until ls)]
           [((:parser block-def) ctx (assoc block-def :lines (into [l] consumed-ls))) ls])
         [((:parser block-def) ctx (assoc block-def :lines [l])) ls]))
-    (let [[consumed-ls ls] (consume-until {:name :p}  str/blank? ls)]
+    (let [[consumed-ls ls] (consume-until {:name :p}  (fn [s] (or (str/blank? s) (block-start s))) ls true)]
       [(p-parser  ctx (assoc {:name :p} :lines (into [l] consumed-ls))) ls])))
 
 (defn parse-lines [ctx ls]

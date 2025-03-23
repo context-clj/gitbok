@@ -17,7 +17,8 @@
   (let [idx (->> (file-seq (io/file (or path "docs")))
                  (reduce (fn [acc f]
                            (let [path (.getPath f)]
-                             (if (str/ends-with? path ".md")
+                             (if (and (str/ends-with? path ".md")
+                                      (not (str/starts-with? path ".git/")))
                                (assoc acc path {:title (or (get-title path) (str/replace (.getName f) #"\.md$" ""))
                                                 :path path})
                                acc)))
@@ -57,7 +58,6 @@
 (defn resolve-href [context uri href]
   (let [furi (normalize-path uri href)
         path (uri-to-path furi)]
-    (println path)
     (get (get-index context) path)))
 
 (comment

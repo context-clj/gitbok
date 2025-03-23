@@ -11,7 +11,7 @@
 (defn parse-markdown-link [text]
   (if-let [match (re-find #"\[(.*?)\]\((.*?)\)" text)]
     (let [href (nth match 2)]
-      [:a {:class "px-4 text-gray-500 block hover:bg-gray-50 py-1.5"
+      [:a {:class "px-4 text-gray-500 block hover:bg-gray-50 py-1"
            :href (if (str/starts-with? href "http") href (str "/" href))
            :hx-target "#content"
            :hx-swap "outerHTML"}

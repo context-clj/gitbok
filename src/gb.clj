@@ -41,7 +41,7 @@
    [:a {:href "/notebooks" :class "block px-5 py-1"} "Notebooks"]
    (for [it (gb.summary/parse-summary)]
      [:div
-      [:div {:class "pl-4 mt-6 mb-2"} [:b (:title it)]]
+      [:div {:class "pl-4 mt-4 mb-2"} [:b (:title it)]]
       (for [ch (:children it)]
         (render-menu ch))])])
 
@@ -221,6 +221,10 @@
 
 
 (comment
+  (require '[system.dev :as dev])
+
+  (dev/update-libs)
+
   (def context (system/start-system default-config))
 
   (system/stop-system context)
